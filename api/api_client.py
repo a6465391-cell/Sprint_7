@@ -1,60 +1,32 @@
 import requests
-from config.config import BASE_URL
-import allure
 
 class APIClient:
-    def __init__(self):
-        self.base_url = BASE_URL
+    def __init__(self, base_url="https://qa-scooter.praktikum-services.ru/api/v1"):
+        self.base_url = base_url
+        self.session = requests.Session()
 
-    @allure.step("Регистрация нового курьера")
+    def create_courier(self, payload):
+        """Создаёт курьера через POST /courier"""
+        url = f"{self.base_url}/courier"
+        response = self.session.post(url, data=payload)
+        return response
+
+    # 👇 ЭТОГО МЕТОДА НЕ ХВАТАЛО 👇
     def register_courier(self, payload):
-        try:
-            response = requests.post(
-                f"{self.base_url}/api/v1/courier",
-                json=payload,
-                timeout=60
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Не удалось отправить запрос на регистрацию курьера: {e}")
+        """Алиас для create_courier — нужен для совместимости с conftest.py"""
+        return self.create_courier(payload)
 
-    @allure.step("Авторизация курьера")
     def login_courier(self, payload):
-        """Отправляет POST запрос на авторизацию курьера."""
-        try:
-            
-            response = requests.post(
-                f"{self.base_url}/api/v1/courier/login", 
-                json=payload, 
-                timeout=60
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Не удалось отправить запрос на авторизацию: {e}")
+        url = f"{self.base_url}/courier/login"
+        response = self.session.post(url, data=payload)
+        return response
 
-    @allure.step("Создание заказа")
     def create_order(self, payload):
-        """Отправляет POST запрос на создание заказа."""
-        try:
-            
-            response = requests.post(
-                f"{self.base_url}/api/v1/orders", 
-                json=payload, 
-                timeout=60
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Не удалось отправить запрос на создание заказа: {e}")
+        url = f"{self.base_url}/orders"
+        response = self.session.post(url, json=payload)
+        return response
 
-    @allure.step("Получение списка заказов")
     def get_orders(self):
-        """Отправляет GET запрос на получение списка заказов."""
-        try:
-            
-            response = requests.get(
-                f"{self.base_url}/api/v1/orders", 
-                timeout=60
-            )
-            return response
-        except requests.exceptions.RequestException as e:
-            raise ConnectionError(f"Не удалось получить список заказов: {e}")
+        url = f"{self.base_url}/orders"
+        response = self.session.get(url)
+        return response

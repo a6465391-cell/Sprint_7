@@ -1,0 +1,1 @@
+Критическая ошибка при удалении курьера: 'APIClient' object has no attribute 'delete_courier'
