@@ -1,20 +1,24 @@
-# Sprint_7: тесты API Яндекс Самокат
+# Sprint_7: Автотесты API Яндекс Самокат
 
-Автотесты для эндпоинтов создания курьера, логина, заказа.
+Автотесты для проверки API учебного сервиса Яндекс Самокат.
+Покрыты эндпоинты: создание курьера, логин курьера, создание заказов (с параметризацией цветов) и получение списка заказов.
 
-## Запуск
-1. Активируй venv: `venv\Scripts\activate` (Windows) или `source venv/bin/activate` (macOS/Linux).
-2. Установи зависимости: `pip install -r requirements.txt`.
-3. Запусти тесты: `pytest`.
-4. Сгенерируй отчёт Allure: `allure generate allure-results -o allure-report --clean`.
-
-## Зависимости
-- requests
+## Технологии
+- Python 3.11
 - pytest
-- allure-pytest
+- requests
+- Allure (для генерации отчётов)
 
-## Стенд
-http://qa-scooter.praktikum-services.ru
-
-## Отчёт
-allure-report/
+## Установка
+1. Склонируй репозиторий или скачай файлы.
+2. Создай виртуальное окружение и активируй его:
+   ```bash
+   python -m venv venv
+   # Windows:
+   venv\Scripts\activate
+   # Linux/Mac:
+   source venv/bin/activate
+   ```
+3. Установи зависимости:
+   ```bash
+   pip install -r requirements.txt

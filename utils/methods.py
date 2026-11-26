@@ -1,8 +1,6 @@
-# utils/methods.py
-import requests
-import random
 import string
-from config.config import BASE_URL
+import random
+from api.api_client import APIClient
 
 def generate_random_string(length):
     letters = string.ascii_lowercase
@@ -19,9 +17,17 @@ def register_new_courier_and_return_login_password():
         "firstName": first_name
     }
 
-    # Важно: json= и http://
-    response = requests.post(f"{BASE_URL}/api/v1/courier", json=payload)
+    api_client = APIClient()  
+    try:
+        response = api_client.register_courier(payload)
+    except Exception as e:
+        print(f"❌ Ошибка соединения при регистрации: {e}")
+        return []
 
-    if response.status_code == 201:
-        return [login, password, first_name]
-    return []
+    if response.status_code != 201:
+        print(f"⚠️ Регистрация не удалась! Статус: {response.status_code}")
+        print(f"Тело ответа: {response.text}")
+        print(f"Отправленные данные: {payload}")
+        return []
+
+    return [login, password, first_name]
