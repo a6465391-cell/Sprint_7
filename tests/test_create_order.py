@@ -9,68 +9,54 @@ class TestCreateOrder:
     def setup_method(self):
         self.api_client = APIClient()
 
-    @allure.story("Создание заказа с разными цветами")
-    @pytest.mark.parametrize("payload,title", [
-        (
-            {"street": "ул. Ленина", "from": 1, "to": 10, "comment": "Тест заказа"},
-            "Без цвета"
-        ),
-        (
-            {"street": "ул. Ленина", "from": 1, "to": 10, "comment": "Тест заказа", "color": ["BLACK"]},
-            "Цвет BLACK"
-        ),
-        (
-            {"street": "ул. Ленина", "from": 1, "to": 10, "comment": "Тест заказа", "color": ["GREY"]},
-            "Цвет GREY"
-        ),
-        (
-            {"street": "ул. Ленина", "from": 1, "to": 10, "comment": "Тест заказа", "color": ["BLACK", "GREY"]},
-            "Несколько цветов"
-        ),
-    ])
-    @allure.title("{title}")
-    def test_create_order_with_colors(self, payload, title):
-        response = self.api_client.create_order(payload)
-
-        with allure.step(f"Проверка статуса ответа"):
-            assert response.status_code in [201, 400, 500], \
-                f"Получен неожиданный статус: {response.status_code}. Тело: {response.text}"
-
-        with allure.step("Проверка тела ответа"):
-            try:
-                data = response.json()
-            except ValueError:
-                pytest.fail(f"Сервер не вернул валидный JSON. Статус: {response.status_code}, Тело: {response.text}")
-
-            if response.status_code == 201:
-                assert "track" in data, f"При успехе (201) не найдено поле 'track': {data}"
-            else:
-                has_error_msg = "message" in data or "error" in data or "code" in data
-                assert has_error_msg, f"При ошибке ({response.status_code}) нет сообщения об ошибке в теле: {data}"
-
-    @allure.story("Создание заказа с отсутствующими полями")
-    @pytest.mark.parametrize("missing_field", [
-        "street", "from", "to", "comment"    ])
-    @allure.title("Проверка создания заказа без поля '{missing_field}'")
-    def test_create_order_with_missing_fields(self, missing_field):
+    def make_order_payload(self, **overrides):
         payload = {
-            "street": "ул. Ленина",
-            "from": 1,
-            "to": 10,
+            "firstName": "Тест",
+            "lastName": "Тестов",
+            "address": "ул. Ленина, 1",
+            "metroStation": 4,
+            "phone": "+7 999 000 00 00",
+            "rentTime": 5,
+            "deliveryDate": "2026-12-01",
             "comment": "Тест заказа",
-            "color": ["BLACK"]}
+        }
+        payload.update(overrides)
+        return payload
 
-        if missing_field in payload:
-            del payload[missing_field]
-        del payload["color"]  
+    def cancel_order_if_created(self, response):
+        with allure.step("Очистка: отмена заказа"):
+            if response.status_code == 201:
+                track = response.json().get("track")
+                assert track is not None, f"Не найден track заказа для отмены: {response.json()}"
+                cancel_response = self.api_client.cancel_order(track)
+                assert cancel_response.status_code == 200, (
+                    f"Не удалось отменить заказ (track={track}). "
+                    f"Статус: {cancel_response.status_code}, Тело: {cancel_response.text}"
+                )
+
+    @allure.story("Создание заказа с разными цветами")
+    @allure.title("Заказ создаётся: {title}")
+    @pytest.mark.parametrize("color,title", [
+        (None, "без цвета"),
+        (["BLACK"], "цвет BLACK"),
+        (["GREY"], "цвет GREY"),
+        (["BLACK", "GREY"], "оба цвета"),
+    ])
+    def test_create_order_with_colors(self, color, title):
+        payload = self.make_order_payload()
+        if color is not None:
+            payload["color"] = color
 
         response = self.api_client.create_order(payload)
 
-        with allure.step(f"Проверка статуса ответа (поле {missing_field} отсутствует)"):
-            assert response.status_code in [400, 500], \
-                f"Получен неожиданный статус: {response.status_code}. Тело: {response.text}"
+        with allure.step("Проверка статуса ответа"):
+            assert response.status_code == 201, (
+                f"Ожидался 201, получен {response.status_code}. Тело: {response.text}"
+            )
 
         with allure.step("Проверка тела ответа"):
-            data = response.json()  
-            has_error_msg = "message" in data or "error" in data or "code" in data
-            assert has_error_msg, f"Нет сообщения об ошибке в теле при статусе {response.status_code}: {data}" 
+            data = response.json()
+            assert "track" in data, f"При успехе (201) не найдено поле 'track': {data}"
+
+        self.cancel_order_if_created(response)
+

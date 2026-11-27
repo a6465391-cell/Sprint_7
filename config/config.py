@@ -1,2 +1,2 @@
 # config/config.py
-BASE_URL = "http://qa-scooter.praktikum-services.ru"
+base_url = "http://qa-scooter.praktikum-services.ru"

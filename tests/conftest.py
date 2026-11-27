@@ -5,51 +5,46 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-import allure
 import pytest
+import allure
 from api.api_client import APIClient
-from utils.methods import register_new_courier_and_return_login_password
+from utils.methods import generate_random_string
+
 
 @pytest.fixture
 def new_courier():
     api_client = APIClient()
 
-    login, password, first_name = register_new_courier_and_return_login_password()
+    login = f"test_courier_{generate_random_string(8)}"
+    password = "test_pass_123"
+    first_name = "TestName"
 
-    allure.attach(
-        f"Создан курьер: login={login}, first_name={first_name}",
-        name="Создание тестового курьера",
-        attachment_type=allure.attachment_type.TEXT
-    )
+    payload = {
+        "login": login,
+        "password": password,
+        "firstName": first_name
+    }
 
-    if not login:
-        pytest.fail("Не удалось создать тестового курьера для запуска теста")
-    try:
-        yield login, password, first_name        
-    finally:
+    response = api_client.create_courier(payload)
 
-        try:
+    if response.status_code != 201:
+        pytest.fail(
+            f"Не удалось создать курьера для теста. "
+            f"Статус: {response.status_code}, Тело: {response.text}"
+        )
 
-            response = api_client.delete_courier(login)
+    yield login, password, first_name
 
-            if response.status_code == 200:
-                allure.attach(
-                    f"Курьер {login} успешно удален.",
-                    name="Очистка данных",
-                    attachment_type=allure.attachment_type.TEXT)
-            elif response.status_code == 404:
-                allure.attach(
-                    f"Курьер {login} уже был удален ранее или не найден (404).",
-                    name="Очистка данных",
-                    attachment_type=allure.attachment_type.TEXT)
-            else:
-                allure.attach(
-                    f"Попытка удаления курьера {login} вернула статус {response.status_code}. Тело: {response.text}",
-                    name="Ошибка очистки",
-                    attachment_type=allure.attachment_type.TEXT)
-                
-        except Exception as e:
-            allure.attach(
-                f"Критическая ошибка при удалении курьера: {str(e)}",
-                name="Ошибка очистки",
-                attachment_type=allure.attachment_type.TEXT)
+    with allure.step(f"Очистка: удаление курьера '{login}'"):
+        courier_id = api_client.get_courier_id(login, password)
+        assert courier_id is not None, (
+            f"Не удалось получить id курьера '{login}' для удаления — "
+            f"курьер останется в базе"
+        )
+
+        delete_response = api_client.delete_courier(courier_id)
+        if delete_response.status_code != 200:
+            pytest.fail(
+                f"Не удалось удалить курьера '{login}' (id={courier_id}). "
+                f"Статус: {delete_response.status_code}, Тело: {delete_response.text}"
+            )

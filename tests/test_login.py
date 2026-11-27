@@ -1,17 +1,16 @@
-# tests/test_login.py
-import pytest
 import allure
 from api.api_client import APIClient
+from utils.methods import generate_random_string
 
 @allure.epic("API Яндекс Самокат")
-@allure.feature("Авторизация")
+@allure.feature("Логин курьера")
 class TestLogin:
 
     def setup_method(self):
         self.api_client = APIClient()
 
-    @allure.story("Авторизация курьера")
-    @allure.title("Успешный логин курьера")
+    @allure.story("Успешная авторизация")
+    @allure.title("Курьер может авторизоваться с валидными данными")
     @allure.severity(allure.severity_level.CRITICAL)
     def test_login_success(self, new_courier):
         login, password, _ = new_courier
@@ -20,101 +19,76 @@ class TestLogin:
         response = self.api_client.login_courier(payload)
 
         with allure.step("Проверка статуса ответа"):
-            if response.status_code == 504:
-                pytest.skip("Стенд недоступен (504), пропускаем тест")
             assert response.status_code == 200, \
                 f"Ожидался статус 200, получен {response.status_code}. Тело: {response.text}"
 
         with allure.step("Проверка наличия поля id в ответе"):
-            try:
-                data = response.json()
-            except ValueError:
-                pytest.fail(f"Сервер не вернул валидный JSON. Статус: {response.status_code}, Тело: {response.text}")
-            
+            data = response.json()
             assert "id" in data, f"В ответе отсутствует поле 'id': {data}"
 
-    @allure.story("Авторизация курьера")
-    @allure.title("Неверный пароль")
-    @allure.severity(allure.severity_level.NORMAL)
-    def test_login_wrong_password(self):
-        payload = {"login": "test_user", "password": "wrong_password_123"}
+    @allure.story("Авторизация с неверным паролем")
+    @allure.title("Ошибка 404 при неверном пароле для существующего курьера")
+    @allure.severity(allure.severity_level.CRITICAL)
+    def test_login_wrong_password(self, new_courier):
+        login, password, _ = new_courier
+        payload = {"login": login, "password": f"{password}_wrong"}
+
         response = self.api_client.login_courier(payload)
 
         with allure.step("Проверка статуса ответа"):
-            assert response.status_code in [401, 404], \
-                f"Ожидался 401 или 404, получен {response.status_code}. Тело: {response.text}"
+            assert response.status_code == 404, \
+                f"Ожидался 404, получен {response.status_code}. Тело: {response.text}"
 
-        with allure.step("Проверка тела ответа"):
-            try:
-                data = response.json()
-            except ValueError:
-                pytest.fail(f"Сервер не вернул валидный JSON. Статус: {response.status_code}, Тело: {response.text}")
-            
-            has_error_msg = "message" in data or "error" in data
-            assert has_error_msg, f"В теле ответа нет сообщения об ошибке: {data}"
+        with allure.step("Проверка сообщения об ошибке"):
+            data = response.json()
+            assert "message" in data, f"В теле ответа нет сообщения об ошибке: {data}"
 
-    @allure.story("Авторизация курьера")
-    @allure.title("Отсутствие пароля в запросе")
+    @allure.story("Авторизация без пароля")
+    @allure.title("Ошибка 400 при отсутствии пароля в запросе")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_login_missing_password(self):
-        payload = {"login": "test_user"}
+    def test_login_missing_password(self, new_courier):
+        login, _, _ = new_courier
+        payload = {"login": login}
+
         response = self.api_client.login_courier(payload)
 
         with allure.step("Проверка статуса ответа"):
-            assert response.status_code in [400, 404, 504], \
-            f"Получен неожиданный статус: {response.status_code}. Тело: {response.text}"
+            assert response.status_code == 400, \
+                f"Ожидался 400, получен {response.status_code}. Тело: {response.text}"
 
-        with allure.step("Проверка тела ответа"):
-            if response.status_code in [400, 404]:
-                try:
-                    data = response.json()
-                except ValueError:
-                    pytest.fail(f"При ошибке валидации сервер не вернул валидный JSON. Статус: {response.status_code}, Тело: {response.text}")
-                has_error_msg = "message" in data or "error" in data or "code" in data
-                assert has_error_msg, f"В теле ответа нет сообщения об ошибке: {data}"
-            else:  # 504 — сервер недоступен
-                assert response.text, "При статусе 504 тело ответа пустое"
+        with allure.step("Проверка сообщения об ошибке"):
+            data = response.json()
+            assert "message" in data, f"В теле ответа нет сообщения об ошибке: {data}"
 
-    @allure.story("Авторизация курьера")
-    @allure.title("Отсутствие логина в запросе")
+    @allure.story("Авторизация без логина")
+    @allure.title("Ошибка 400 при отсутствии логина в запросе")
     @allure.severity(allure.severity_level.NORMAL)
-    def test_login_missing_login(self):
-        payload = {"password": "test_password"}  
+    def test_login_missing_login(self, new_courier):
+        _, password, _ = new_courier
+        payload = {"password": password}
+
         response = self.api_client.login_courier(payload)
 
         with allure.step("Проверка статуса ответа"):
-            if response.status_code == 504:
-                pytest.skip("Стенд недоступен (504), пропускаем тест")
-            assert response.status_code in [400, 404], \
-                f"Получен неожиданный статус: {response.status_code}. Тело: {response.text}"
+            assert response.status_code == 400, \
+                f"Ожидался 400, получен {response.status_code}. Тело: {response.text}"
 
-        with allure.step("Проверка тела ответа"):
-            try:
-                data = response.json()
-            except ValueError:
-                pytest.fail(f"Сервер не вернул валидный JSON. Статус: {response.status_code}, Тело: {response.text}")
-            
-            has_error_msg = "message" in data or "error" in data
-            assert has_error_msg, f"В теле ответа нет сообщения об ошибке: {data}"
+        with allure.step("Проверка сообщения об ошибке"):
+            data = response.json()
+            assert "message" in data, f"В теле ответа нет сообщения об ошибке: {data}"
 
-    @allure.story("Авторизация курьера")
-    @allure.title("Логин несуществующего пользователя")
+    @allure.story("Авторизация несуществующего курьера")
+    @allure.title("Ошибка 404 при логине несуществующего курьера")
     @allure.severity(allure.severity_level.NORMAL)
     def test_login_non_existent_user(self):
-        payload = {"login": "non_existent_user_999", "password": "any_password"}
+        payload = {"login": f"no_such_{generate_random_string(8)}", "password": "any_password"}
+
         response = self.api_client.login_courier(payload)
 
         with allure.step("Проверка статуса ответа"):
-            if response.status_code == 504:
-                pytest.skip("Стенд недоступен (504), пропускаем тест")
-            assert response.status_code in [404, 401], \
-                f"Ожидался 404 или 401, получен {response.status_code}. Тело: {response.text}"
+            assert response.status_code == 404, \
+                f"Ожидался 404, получен {response.status_code}. Тело: {response.text}"
 
-        with allure.step("Проверка тела ответа"):
-            try:
-                data = response.json()
-            except ValueError:
-                pytest.fail(f"Сервер не вернул валидный JSON. Статус: {response.status_code}, Тело: {response.text}")
-            
-            has_error_msg = "message" in data or "error" in data
-            assert has_error_msg, f"В теле ответа нет сообщения об ошибке: {data}"
+        with allure.step("Проверка сообщения об ошибке"):
+            data = response.json()
+            assert "message" in data, f"В теле ответа нет сообщения об ошибке: {data}"
